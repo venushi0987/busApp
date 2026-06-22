@@ -202,7 +202,7 @@ export const updateDriverBus = async (req: any, res: Response): Promise<void> =>
       leaveTime, arriveTime,
     } = req.body;
 
-    if (req.user.role !== UserRole.DRIVER) {
+    if (req.user.role?.toUpperCase() !== UserRole.DRIVER.toUpperCase()) {
       res.status(403).json({ success: false, message: 'Access denied. Drivers only.' });
       return;
     }
@@ -257,7 +257,7 @@ export const updateDriverStatus = async (req: any, res: Response): Promise<void>
   try {
     const { todayStatus, delayMinutes, delayReason, isBusFull } = req.body;
 
-    if (req.user.role !== UserRole.DRIVER) {
+    if (req.user.role?.toUpperCase() !== UserRole.DRIVER.toUpperCase()) {
       res.status(403).json({ success: false, message: 'Access denied. Drivers only.' });
       return;
     }
@@ -298,5 +298,44 @@ export const updateDriverStatus = async (req: any, res: Response): Promise<void>
   } catch (error) {
     console.error('Update status error:', error);
     res.status(500).json({ success: false, message: 'Server error updating status' });
+  }
+};
+
+// ─── UPDATE DRIVER LOCATION ──────────────────────────────────────────────────
+// @route   PUT /api/auth/driver-location
+// @access  Private/Driver
+export const updateDriverLocation = async (req: any, res: Response): Promise<void> => {
+  try {
+    const { latitude, longitude } = req.body;
+
+    if (req.user.role?.toUpperCase() !== UserRole.DRIVER.toUpperCase()) {
+      res.status(403).json({ success: false, message: 'Access denied. Drivers only.' });
+      return;
+    }
+
+    if (latitude === undefined || longitude === undefined) {
+      res.status(400).json({ success: false, message: 'Latitude and longitude are required' });
+      return;
+    }
+
+    await User.findByIdAndUpdate(req.user.id, {
+      $set: { latitude, longitude }
+    });
+
+    await BusSchedule.findOneAndUpdate(
+      { driver: req.user.id },
+      {
+        $set: {
+          latitude,
+          longitude,
+          lastLocationUpdate: new Date(),
+        }
+      }
+    );
+
+    res.status(200).json({ success: true, message: 'Location updated successfully' });
+  } catch (error) {
+    console.error('Update location error:', error);
+    res.status(500).json({ success: false, message: 'Server error updating location' });
   }
 };

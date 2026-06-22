@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import apiClient from '@/api/client';
 import { useAuth } from '@/context/AuthContext';
+import * as Location from 'expo-location';
 
 export default function DriverDashboard() {
   const { token } = useAuth();
@@ -38,6 +39,7 @@ export default function DriverDashboard() {
   // Status Dropdowns States
   const [showStatusDropdown, setShowStatusDropdown] = useState(false);
   const [showTimeDropdown, setShowTimeDropdown] = useState(false);
+  const [isLocationSharing, setIsLocationSharing] = useState(false);
 
   // වෙලාව AM/PM විදිහට Format කරගන්නා ශ්‍රිතය (Function)
   const formatTime = (date: Date) => {
@@ -69,6 +71,20 @@ export default function DriverDashboard() {
             if (!isNaN(arriveDate.getTime())) setArriveTime(arriveDate);
           }
 
+          if (userObj.todayStatus) {
+            const status = userObj.todayStatus === 'delayed' ? 'late' : userObj.todayStatus;
+            setTodayStatus(status as any);
+          }
+          if (userObj.isBusFull !== undefined) {
+            setIsFull(userObj.isBusFull);
+          }
+          if (userObj.delayReason) {
+            setLateReason(userObj.delayReason);
+          }
+          if (userObj.delayMinutes) {
+            setLateTime(`${userObj.delayMinutes} min`);
+          }
+
           // If they already have saved route/bus details, start in view mode (isEditing = false)
           if (userObj.routeFrom && userObj.busNumber) {
             setIsEditing(false);
@@ -84,6 +100,58 @@ export default function DriverDashboard() {
       fetchDriverBusDetails();
     }
   }, [token]);
+
+  useEffect(() => {
+    let intervalId: any = null;
+
+    const startSharing = async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== 'granted') {
+          Alert.alert('Permission Denied', 'Permission to access location was denied.');
+          setIsLocationSharing(false);
+          return;
+        }
+
+        const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+        await sendLocationUpdate(loc.coords.latitude, loc.coords.longitude);
+
+        intervalId = setInterval(async () => {
+          try {
+            const currentLoc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Balanced });
+            await sendLocationUpdate(currentLoc.coords.latitude, currentLoc.coords.longitude);
+          } catch (err) {
+            console.warn('Error getting location in interval:', err);
+          }
+        }, 15000);
+      } catch (err) {
+        console.error('Location sharing error:', err);
+        setIsLocationSharing(false);
+      }
+    };
+
+    if (isLocationSharing && token) {
+      startSharing();
+    }
+
+    return () => {
+      if (intervalId) {
+        clearInterval(intervalId);
+      }
+    };
+  }, [isLocationSharing, token]);
+
+  const sendLocationUpdate = async (latitude: number, longitude: number) => {
+    try {
+      await apiClient.put(
+        '/api/auth/driver-location',
+        { latitude, longitude },
+        { headers: token ? { Authorization: `Bearer ${token}` } : undefined }
+      );
+    } catch (err) {
+      console.warn('Failed to upload location:', err);
+    }
+  };
 
   // ✅ All handler functions defined BEFORE early return
   const handleSaveBus = async () => {
@@ -124,8 +192,37 @@ export default function DriverDashboard() {
     }
   };
 
-  const handleAddSchedule = () => {
-    Alert.alert('Schedule', 'Bus schedule status updated!');
+  const handleAddSchedule = async () => {
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      const apiStatus = todayStatus === 'late' ? 'delayed' : todayStatus;
+      const delayMinutes = todayStatus === 'late' ? parseInt(lateTime, 10) || 0 : 0;
+      const delayReason = todayStatus === 'late' ? lateReason : (todayStatus === 'cancelled' ? 'Cancelled by driver' : '');
+
+      const response = await apiClient.put(
+        '/api/auth/driver-status',
+        {
+          todayStatus: apiStatus,
+          delayMinutes,
+          delayReason,
+          isBusFull: !!isFull,
+        },
+        { headers: token ? { Authorization: `Bearer ${token}` } : undefined }
+      );
+
+      if (response.data.success) {
+        Alert.alert('Success', 'Bus status updated successfully!');
+      } else {
+        Alert.alert('Error', response.data.message || 'Failed to update status.');
+      }
+    } catch (error: any) {
+      console.error('Update status error:', error);
+      const msg = error?.response?.data?.message || 'Failed to update status. Check your network.';
+      Alert.alert('Error', msg);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (loading) {
@@ -368,6 +465,26 @@ export default function DriverDashboard() {
               onPress={() => setIsFull(false)}
             >
               <Text style={[styles.toggleText, isFull === false && styles.toggleTextActive]}>No</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+
+        {/* ================= SECTION 3.5: LIVE LOCATION SHARING ================= */}
+        <View style={styles.card}>
+          <Text style={styles.labelCentered}>Live GPS Tracking :</Text>
+          <View style={styles.toggleRow}>
+            <TouchableOpacity
+              style={[styles.toggleButton, isLocationSharing === true && styles.toggleActive]}
+              onPress={() => setIsLocationSharing(true)}
+            >
+              <Text style={[styles.toggleText, isLocationSharing === true && styles.toggleTextActive]}>ON (Sharing)</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.toggleButton, isLocationSharing === false && styles.toggleActive]}
+              onPress={() => setIsLocationSharing(false)}
+            >
+              <Text style={[styles.toggleText, isLocationSharing === false && styles.toggleTextActive]}>OFF</Text>
             </TouchableOpacity>
           </View>
         </View>

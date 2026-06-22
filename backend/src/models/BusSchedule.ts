@@ -18,6 +18,9 @@ export interface IBusSchedule extends Document {
   busType?: string;       // CTB | Private
   vehicleType?: string;   // AC | Non-AC
   routeType?: string;     // Highway | Normal
+  latitude?: number;
+  longitude?: number;
+  lastLocationUpdate?: Date;
   status: BusStatus;
   isBusFull?: boolean;
   delayMinutes?: number;
@@ -53,6 +56,9 @@ const BusScheduleSchema: Schema<IBusSchedule> = new Schema(
     busType:     { type: String, default: 'Private' },
     vehicleType: { type: String, default: 'Non-AC' },
     routeType:   { type: String, default: 'Normal' },
+    latitude:    { type: Number },
+    longitude:   { type: Number },
+    lastLocationUpdate: { type: Date },
     status: {
       type: String,
       enum: Object.values(BusStatus),

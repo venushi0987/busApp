@@ -22,6 +22,8 @@ export interface IUser extends Document {
   routeTo?: string;
   leaveTime?: string;
   arriveTime?: string;
+  latitude?: number;
+  longitude?: number;
   // Status
   isBusFull?: boolean;
   todayStatus?: string;   // 'available' | 'delayed' | 'cancelled'
@@ -73,6 +75,10 @@ const UserSchema: Schema<IUser> = new Schema(
     routeTo:     { type: String, default: '' },
     leaveTime:   { type: String, default: '' },
     arriveTime:  { type: String, default: '' },
+
+    // Live location
+    latitude:     { type: Number },
+    longitude:    { type: Number },
 
     // Live status fields
     isBusFull:    { type: Boolean, default: false },

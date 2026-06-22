@@ -8,6 +8,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import apiClient from '@/api/client';
 import { useAuth } from '@/context/AuthContext';
+import BusMap from '@/components/BusMap';
 
 interface BusData {
   _id: string;
@@ -24,6 +25,8 @@ interface BusData {
   busType?: string;
   vehicleType?: string;
   routeType?: string;
+  latitude?: number;
+  longitude?: number;
   // Populated driver fields
   driver?: {
     _id: string;
@@ -52,11 +55,18 @@ export default function BusSearchResults() {
 
   useEffect(() => {
     fetchBuses();
+    
+    // Polling interval for live updates
+    const interval = setInterval(() => {
+      fetchBuses(false); // pass false to avoid showing loading indicator again
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, [startPoint, destination]);
 
-  const fetchBuses = async () => {
+  const fetchBuses = async (showLoading = true) => {
     if (!startPoint || !destination) return;
-    setLoading(true);
+    if (showLoading) setLoading(true);
     setErrorMsg('');
     try {
       const params: Record<string, string> = {};
@@ -84,6 +94,8 @@ export default function BusSearchResults() {
           busType: item.busType || item.driver?.busType || 'Private',
           vehicleType: item.vehicleType || item.driver?.vehicleType || 'Non-AC',
           routeType: item.routeType || item.driver?.routeType || 'Normal',
+          latitude: item.latitude,
+          longitude: item.longitude,
           driver: item.driver,
         }));
         setBuses(mapped);
@@ -99,7 +111,7 @@ export default function BusSearchResults() {
       setSelectedBus(null);
       setErrorMsg('Could not connect to the server. Please check your connection.');
     } finally {
-      setLoading(false);
+      if (showLoading) setLoading(false);
     }
   };
 
@@ -144,7 +156,7 @@ export default function BusSearchResults() {
         <View style={styles.centered}>
           <Ionicons name="bus-outline" size={48} color="#CBD5E1" />
           <Text style={styles.emptyText}>{errorMsg}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={fetchBuses}>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => fetchBuses()}>
             <Text style={styles.retryText}>Retry</Text>
           </TouchableOpacity>
         </View>
@@ -202,6 +214,23 @@ export default function BusSearchResults() {
                   {getStatusLabel(selectedBus)}
                 </Text>
               </View>
+
+              {/* Map View */}
+              {selectedBus.latitude && selectedBus.longitude ? (
+                <BusMap 
+                  latitude={selectedBus.latitude} 
+                  longitude={selectedBus.longitude} 
+                  busNumber={selectedBus.busNumber} 
+                  isBusFull={selectedBus.isBusFull ?? false} 
+                />
+              ) : (
+                <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F1F5F9', borderRadius: 12, padding: 16, marginBottom: 16, gap: 10 }}>
+                  <Ionicons name="map-outline" size={24} color="#64748B" />
+                  <Text style={{ fontSize: 13, color: '#64748B', fontWeight: '500' }}>
+                    Live location tracking is currently offline.
+                  </Text>
+                </View>
+              )}
 
               {/* Details Card */}
               <View style={styles.infoCard}>
