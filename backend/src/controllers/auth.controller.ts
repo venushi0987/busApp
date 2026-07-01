@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import bcrypt from 'bcryptjs';
 import User, { IUser, UserRole } from '../models/User';
 import BusSchedule, { BusStatus } from '../models/BusSchedule';
+import { io } from '../index';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'super_secret_jwt_key_change_me_in_production';
 const JWT_EXPIRES_IN = '30d';
@@ -28,7 +29,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
   try {
     const {
       name, email, password, role,
-      contactNo,
+      contactNo, phone,
       // Driver fields
       driverLicense, busNumber, busName,
       busType, vehicleType, routeType,
@@ -56,7 +57,7 @@ export const register = async (req: Request, res: Response): Promise<void> => {
       email,
       passwordHash,
       role: role || UserRole.PASSENGER,
-      contactNo: contactNo || '',
+      contactNo: contactNo || phone || '',
       // Driver-only
       driverLicense: isDriver ? driverLicense : undefined,
       busNumber:     isDriver ? busNumber     : undefined,
@@ -136,13 +137,13 @@ export const login = async (req: Request, res: Response): Promise<void> => {
 
     const user = await User.findOne({ email });
     if (!user) {
-      res.status(401).json({ success: false, message: 'Invalid credentials' });
+      res.status(401).json({ success: false, message: 'Incorrect username or email' });
       return;
     }
 
     const isMatch = await bcrypt.compare(password, user.passwordHash);
     if (!isMatch) {
-      res.status(401).json({ success: false, message: 'Invalid credentials' });
+      res.status(401).json({ success: false, message: 'Incorrect password' });
       return;
     }
 
@@ -332,6 +333,13 @@ export const updateDriverLocation = async (req: any, res: Response): Promise<voi
         }
       }
     );
+
+    // Emit live location to connected socket clients
+    io.emit('location-update', {
+      driverId: req.user.id,
+      latitude,
+      longitude
+    });
 
     res.status(200).json({ success: true, message: 'Location updated successfully' });
   } catch (error) {

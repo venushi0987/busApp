@@ -3,7 +3,7 @@ import { Platform } from 'react-native';
 
 // Use your computer's local IP when testing on a physical device.
 // For the web browser on the same machine, localhost works fine.
-const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5001';
+export const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:5001';
 
 const apiClient = axios.create({
   baseURL: API_URL,

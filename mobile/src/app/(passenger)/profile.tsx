@@ -3,6 +3,7 @@ import { StyleSheet, Text, View, ScrollView, TouchableOpacity, ActivityIndicator
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import apiClient from '@/api/client';
 import { useAuth } from '@/context/AuthContext';
 
@@ -36,12 +37,28 @@ export default function PassengerProfile() {
 
       if (response.data.success) {
         const dbUser = response.data.user;
+        
+        let lastFrom = 'Not Specified';
+        let lastTo = 'Not Specified';
+        try {
+          const historyStr = await AsyncStorage.getItem('passengerSearchHistory');
+          if (historyStr) {
+            const history = JSON.parse(historyStr);
+            if (history && history.length > 0) {
+              lastFrom = history[0].from;
+              lastTo = history[0].to;
+            }
+          }
+        } catch (e) {
+          console.error('Failed to load search history in profile', e);
+        }
+
         setProfileData({
           name: dbUser.name,
           email: dbUser.email,
           role: dbUser.role,
-          lastRouteFrom: dbUser.routeFrom || 'Not Specified',
-          lastRouteTo: dbUser.routeTo || 'Not Specified',
+          lastRouteFrom: lastFrom,
+          lastRouteTo: lastTo,
           contactNo: dbUser.contactNo || 'Not Specified',
         });
       }

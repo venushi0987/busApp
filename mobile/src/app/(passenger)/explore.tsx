@@ -6,7 +6,7 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import apiClient from '@/api/client';
+import apiClient, { API_URL } from '@/api/client';
 import { useAuth } from '@/context/AuthContext';
 import BusMap from '@/components/BusMap';
 
@@ -55,13 +55,31 @@ export default function BusSearchResults() {
 
   useEffect(() => {
     fetchBuses();
+    // Listen to real-time location updates via Socket.io using dynamic import to fix Web SSR Metro errors
+    let socket: any = null;
+    const connectSocket = async () => {
+      const { io } = await import('socket.io-client');
+      socket = io(API_URL);
+      socket.on('location-update', (data: { driverId: string; latitude: number; longitude: number }) => {
+        setBuses((prev) => prev.map((bus) => 
+          bus.driver?._id === data.driverId 
+            ? { ...bus, latitude: data.latitude, longitude: data.longitude } 
+            : bus
+        ));
+        setSelectedBus((prev) => {
+          if (prev?.driver?._id === data.driverId) {
+            return { ...prev, latitude: data.latitude, longitude: data.longitude };
+          }
+          return prev;
+        });
+      });
+    };
     
-    // Polling interval for live updates
-    const interval = setInterval(() => {
-      fetchBuses(false); // pass false to avoid showing loading indicator again
-    }, 10000);
+    connectSocket();
 
-    return () => clearInterval(interval);
+    return () => {
+      if (socket) socket.disconnect();
+    };
   }, [startPoint, destination]);
 
   const fetchBuses = async (showLoading = true) => {

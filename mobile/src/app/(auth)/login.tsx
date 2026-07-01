@@ -16,12 +16,13 @@ export default function WelcomeLoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [secureText, setSecureText] = useState(true);
-  const [selectedRole, setSelectedRole] = useState<UserRole>(UserRole.PASSENGER);
   const [loading, setLoading] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
 
   const handleLogin = async () => {
+    setErrorMessage('');
     if (!email || !password) {
-      Alert.alert('Required Fields', 'Please enter email and password.');
+      setErrorMessage('Please enter email and password.');
       return;
     }
     
@@ -29,17 +30,17 @@ export default function WelcomeLoginScreen() {
     try {
       const result = await login(email, password);
       if (result.success) {
-        // Redirect based on role
-        if (selectedRole === UserRole.DRIVER) {
+        // Redirect based strictly on their backend role
+        if (result.user?.role?.toUpperCase() === 'DRIVER') {
           router.replace('/(driver)/' as any);
         } else {
           router.replace('/(passenger)/' as any);
         }
       } else {
-        Alert.alert('Login Failed', result.error || 'Invalid credentials.');
+        setErrorMessage(result.error || 'Invalid credentials.');
       }
     } catch (err) {
-      Alert.alert('Error', 'An unexpected connection error occurred.');
+      setErrorMessage('An unexpected connection error occurred.');
     } finally {
       setLoading(false);
     }
@@ -108,38 +109,13 @@ export default function WelcomeLoginScreen() {
             </TouchableOpacity>
           </View>
 
-          {/* Role Selection Toggle styled with Teal colors */}
-          <View style={styles.roleToggleContainer}>
-            <TouchableOpacity
-              style={[
-                styles.roleTab,
-                selectedRole === UserRole.PASSENGER && styles.selectedRoleTab
-              ]}
-              onPress={() => setSelectedRole(UserRole.PASSENGER)}
-            >
-              <Text style={[
-                styles.roleText,
-                selectedRole === UserRole.PASSENGER && styles.selectedRoleText
-              ]}>
-                Passenger
-              </Text>
-            </TouchableOpacity>
+          {errorMessage ? (
+            <Text style={{ color: '#E53E3E', fontSize: 14, marginBottom: 16, textAlign: 'center', fontWeight: '500' }}>
+              {errorMessage}
+            </Text>
+          ) : null}
 
-            <TouchableOpacity
-              style={[
-                styles.roleTab,
-                selectedRole === UserRole.DRIVER && styles.selectedRoleTab
-              ]}
-              onPress={() => setSelectedRole(UserRole.DRIVER)}
-            >
-              <Text style={[
-                styles.roleText,
-                selectedRole === UserRole.DRIVER && styles.selectedRoleText
-              ]}>
-                Driver
-              </Text>
-            </TouchableOpacity>
-          </View>
+          {/* Role selection is automatically handled by the backend */}
 
           {/* Forgot Password Link */}
           <TouchableOpacity 
@@ -278,37 +254,6 @@ const styles = StyleSheet.create({
     flex: 1,
     color: '#1E322F',
     fontSize: 16,
-  },
-  roleToggleContainer: {
-    flexDirection: 'row',
-    height: 48,
-    borderRadius: 24,
-    backgroundColor: '#E2EBE9',
-    padding: 3,
-    marginBottom: 16,
-  },
-  roleTab: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderRadius: 21,
-  },
-  selectedRoleTab: {
-    backgroundColor: '#1A5F56',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  roleText: {
-    fontSize: 18,
-    fontWeight: '600',
-    color: '#5C7470',
-  },
-  selectedRoleText: {
-    color: '#FFFFFF',
-    fontWeight: 'bold',
   },
   forgotPassword: {
     alignSelf: 'flex-end',

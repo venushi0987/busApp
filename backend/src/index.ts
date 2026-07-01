@@ -1,6 +1,8 @@
 import express, { Application, Request, Response } from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import http from 'http';
+import { Server } from 'socket.io';
 import { connectDB } from './config/db';
 
 import authRoutes from './routes/auth.routes';
@@ -11,6 +13,12 @@ import feedbackRoutes from './routes/feedback.routes';
 dotenv.config();
 
 const app: Application = express();
+const server = http.createServer(app);
+export const io = new Server(server, {
+  cors: {
+    origin: '*',
+  }
+});
 const PORT = process.env.PORT || 5001;
 
 // Connect to Database
@@ -30,7 +38,15 @@ app.get('/health', (req: Request, res: Response) => {
   res.status(200).json({ status: 'ok', message: 'Bus App API is healthy' });
 });
 
+// Socket.io Connection
+io.on('connection', (socket) => {
+  console.log('A client connected for live tracking:', socket.id);
+  socket.on('disconnect', () => {
+    console.log('Client disconnected:', socket.id);
+  });
+});
+
 // Start Server
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Server is running on port ${PORT}`);
 });

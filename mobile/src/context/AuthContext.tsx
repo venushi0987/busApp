@@ -21,7 +21,7 @@ interface AuthContextType {
   token: string | null;
   user: UserProfile | null;
   isLoading: boolean;
-  login: (email: string, password: string) => Promise<{ success: boolean; error?: string }>;
+  login: (email: string, password: string) => Promise<{ success: boolean; error?: string; user?: UserProfile }>;
   register: (data: {
     name: string;
     email: string;
@@ -117,7 +117,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // Set Authorization header for subsequent API calls
       apiClient.defaults.headers.common['Authorization'] = `Bearer ${receivedToken}`;
 
-      return { success: true };
+      return { success: true, user: receivedUser };
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || 'Login failed. Please check credentials.';
       return { success: false, error: errorMsg };
@@ -126,19 +126,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const register = async (data: any) => {
     try {
-      const response = await apiClient.post('/api/auth/register', data);
-      const { token: receivedToken, user: receivedUser } = response.data;
-
-      // Save to Storage
-      await setStorageItemAsync('user_token', receivedToken);
-      await setStorageItemAsync('user_profile', JSON.stringify(receivedUser));
-
-      setToken(receivedToken);
-      setUser(receivedUser);
-
-      // Set Authorization header
-      apiClient.defaults.headers.common['Authorization'] = `Bearer ${receivedToken}`;
-
+      await apiClient.post('/api/auth/register', data);
+      
+      // Do not auto-login; user will be redirected to the login screen
       return { success: true };
     } catch (error: any) {
       const errorMsg = error.response?.data?.message || 'Registration failed. Try again.';

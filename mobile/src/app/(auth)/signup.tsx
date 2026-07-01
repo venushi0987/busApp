@@ -58,11 +58,13 @@ export default function SignupScreen() {
 
       const result = await register(payload);
       if (result.success) {
-        if (role === UserRole.DRIVER) {
-          router.replace('/(driver)' as any);
-        } else {
-          router.replace('/(passenger)' as any);
-        }
+        Alert.alert(
+          'Registration Successful',
+          'Please log in with your new account credentials.',
+          [
+            { text: 'OK', onPress: () => router.replace('/(auth)/login') }
+          ]
+        );
       } else {
         Alert.alert('Signup Failed', result.error || 'Check details and try again.');
       }

@@ -9,4 +9,7 @@ if (!config.resolver.assetExts.includes('ttf')) {
   config.resolver.assetExts.push('ttf');
 }
 
+// Add extensions for socket.io-client / engine.io-client compatibility
+config.resolver.sourceExts.push('mjs', 'cjs', 'node.js');
+
 module.exports = config;
